@@ -95,13 +95,18 @@
             color: white;
         }
 
-        .button:hover {
+        .button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
 
-        .button:active {
+        .button:active:not(:disabled) {
             transform: translateY(0);
+        }
+
+        .button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
         }
 
         .connection-status {
@@ -122,6 +127,13 @@
         .disconnected {
             background-color: #ff4444;
         }
+
+        #timerDisplay {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.5rem;
+            min-height: 20px;
+        }
     </style>
 </head>
 <body>
@@ -136,6 +148,7 @@
         </div>
 
         <button id="toggleButton" class="button button-on">LIGAR LED</button>
+        <div id="timerDisplay"></div>
     </div>
 
     <script>
@@ -154,6 +167,12 @@
         const toggleButton = document.getElementById('toggleButton');
         const ledIndicator = document.getElementById('ledIndicator');
         const connectionStatus = document.getElementById('connectionStatus');
+        const timerDisplay = document.getElementById('timerDisplay');
+
+        // Variáveis do timer
+        const COOLDOWN_TIME = 15; // segundos
+        let timerInterval;
+        let isButtonEnabled = true;
 
         // Verificar conexão com Firebase
         const connectedRef = database.ref('.info/connected');
@@ -192,11 +211,35 @@
             }
         }
 
+        // Função para iniciar o timer
+        function startTimer() {
+            let timeLeft = COOLDOWN_TIME;
+            toggleButton.disabled = true;
+            isButtonEnabled = false;
+
+            timerDisplay.textContent = `Aguarde ${timeLeft} segundos para próxima ação`;
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = `Aguarde ${timeLeft} segundos para próxima ação`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    toggleButton.disabled = false;
+                    isButtonEnabled = true;
+                    timerDisplay.textContent = '';
+                }
+            }, 1000);
+        }
+
         // Alternar estado do LED
         toggleButton.addEventListener('click', () => {
+            if (!isButtonEnabled) return;
+
             ledRef.once('value').then((snapshot) => {
                 const currentState = snapshot.val();
                 ledRef.set(!currentState);
+                startTimer();
             });
         });
     </script>
