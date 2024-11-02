@@ -26,15 +26,15 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-void toggleLED(bool ledState) {
-    digitalWrite(outputPin, ledState);
+void toggleFECHADURA(bool fechaduraState) {
+    digitalWrite(outputPin, fechaduraState);
     
     // Atualiza o estado no Firebase
-    if (Firebase.RTDB.setBool(&fbdo, "led/state", ledState)){
+    if (Firebase.RTDB.setBool(&fbdo, "fechadura/state", fechaduraState)){
         Serial.println("Estado atualizado no Firebase");
         
         // Envia sinal pela porta serial setada na variavel outputPin
-        if (ledState) {
+        if (fechaduraState) {
             Serial.write("PORTA SERIAL LIGADA\n"); // Enviar comando para a portaserial ligar
         } else {
             Serial.write("PORTA SERIAL DESLIGADA\n"); // Enviar comando para a portaserial desligar 
@@ -93,7 +93,7 @@ void loop() {
     if (WiFi.status() == WL_CONNECTED) {
         // Verifica mudanças no Firebase
         if (Firebase.ready() && signupOK) {
-            if (Firebase.RTDB.getBool(&fbdo, "led/state")) {
+            if (Firebase.RTDB.getBool(&fbdo, "fechadura/state")) {
                 bool firebaseState = fbdo.boolData();
                 digitalWrite(outputPin, firebaseState);
             }

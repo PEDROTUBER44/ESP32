@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle LED ESP32</title>
-    <!-- Firebase App (the core Firebase SDK) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-app-compat.js"></script>
-    <!-- Firebase Database -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-database-compat.js"></script>
+    <title>Controle da Fechadura</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-app-compat.js"></script> <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-database-compat.js"></script> <!-- Firebase Database -->
     <style>
         * {
             margin: 0;
@@ -54,7 +52,7 @@
             margin-bottom: 0.5rem;
         }
 
-        .led-status {
+        .fechadura-status {
             width: 20px;
             height: 20px;
             border-radius: 50%;
@@ -63,12 +61,12 @@
             transition: background-color 0.3s ease;
         }
 
-        .led-on {
+        .fechadura-on {
             background-color: #4CAF50;
             box-shadow: 0 0 10px #4CAF50;
         }
 
-        .led-off {
+        .fechadura-off {
             background-color: #ff4444;
             box-shadow: 0 0 10px #ff4444;
         }
@@ -140,14 +138,14 @@
     <div id="connectionStatus" class="connection-status disconnected">Desconectado</div>
     
     <div class="container">
-        <h1>Controle do LED</h1>
+        <h1>Controle da Fechadura</h1>
         
         <div class="status-container">
-            <div id="statusText">Status do LED:</div>
-            <span class="led-status" id="ledIndicator"></span>
+            <div id="statusText">Status da Fechadura:</div>
+            <span class="fechadura-status" id="fechaduraIndicator"></span>
         </div>
 
-        <button id="toggleButton" class="button button-on">LIGAR LED</button>
+        <button id="toggleButton" class="button button-on">LIGAR FECHADURA</button>
         <div id="timerDisplay"></div>
     </div>
 
@@ -161,11 +159,11 @@
         // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-        const ledRef = database.ref('led/state');
+        const fechaduraRef = database.ref('fechadura/state');
 
         // Elementos do DOM
         const toggleButton = document.getElementById('toggleButton');
-        const ledIndicator = document.getElementById('ledIndicator');
+        const fechaduraIndicator = document.getElementById('fechaduraIndicator');
         const connectionStatus = document.getElementById('connectionStatus');
         const timerDisplay = document.getElementById('timerDisplay');
 
@@ -188,8 +186,8 @@
             }
         });
 
-        // Atualizar interface com base no estado do LED
-        ledRef.on('value', (snapshot) => {
+        // Atualizar interface com base no estado da fechadura
+        fechaduraRef.on('value', (snapshot) => {
             const isOn = snapshot.val();
             updateInterface(isOn);
         });
@@ -197,17 +195,17 @@
         // Função para atualizar a interface
         function updateInterface(isOn) {
             if (isOn) {
-                toggleButton.textContent = 'DESLIGAR LED';
+                toggleButton.textContent = 'FECHAR FECHADURA';
                 toggleButton.classList.remove('button-on');
                 toggleButton.classList.add('button-off');
-                ledIndicator.classList.remove('led-off');
-                ledIndicator.classList.add('led-on');
+                fechaduraIndicator.classList.remove('fechadura-off');
+                fechaduraIndicator.classList.add('fechadura-on');
             } else {
-                toggleButton.textContent = 'LIGAR LED';
+                toggleButton.textContent = 'ABRIR FECHADURA';
                 toggleButton.classList.remove('button-off');
                 toggleButton.classList.add('button-on');
-                ledIndicator.classList.remove('led-on');
-                ledIndicator.classList.add('led-off');
+                fechaduraIndicator.classList.remove('fechadura-on');
+                fechaduraIndicator.classList.add('fechadura-off');
             }
         }
 
@@ -232,13 +230,13 @@
             }, 1000);
         }
 
-        // Alternar estado do LED
+        // Alternar estado da Fechadura
         toggleButton.addEventListener('click', () => {
             if (!isButtonEnabled) return;
 
-            ledRef.once('value').then((snapshot) => {
+            fechaduraRef.once('value').then((snapshot) => {
                 const currentState = snapshot.val();
-                ledRef.set(!currentState);
+                fechaduraRef.set(!currentState);
                 startTimer();
             });
         });
