@@ -1,204 +1,25 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle LED ESP32</title>
-    <!-- Firebase App (the core Firebase SDK) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-app-compat.js"></script>
-    <!-- Firebase Database -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-database-compat.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        }
+        <link rel="stylesheet" href="css/style.css">
+        <script defer src="js/script.js"></script>
 
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 90%;
-            width: 400px;
-        }
+        <title>Login</title>
+    </head>
+    <body>
+        <div class="background-image"></div>
+        <div class="side-image left"></div>
+        <div class="side-image right"></div>
 
-        h1 {
-            color: #333;
-            margin-bottom: 2rem;
-            font-size: 2rem;
-        }
-
-        .status-container {
-            margin: 1.5rem 0;
-            padding: 1rem;
-            border-radius: 8px;
-            background: #f8f9fa;
-        }
-
-        #statusText {
-            font-size: 1.1rem;
-            color: #666;
-            margin-bottom: 0.5rem;
-        }
-
-        .led-status {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-left: 10px;
-            transition: background-color 0.3s ease;
-        }
-
-        .led-on {
-            background-color: #4CAF50;
-            box-shadow: 0 0 10px #4CAF50;
-        }
-
-        .led-off {
-            background-color: #ff4444;
-            box-shadow: 0 0 10px #ff4444;
-        }
-
-        .button {
-            padding: 1rem 2rem;
-            font-size: 1.2rem;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-
-        .button-on {
-            background-color: #4CAF50;
-            color: white;
-        }
-
-        .button-off {
-            background-color: #ff4444;
-            color: white;
-        }
-
-        .button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-
-        .button:active {
-            transform: translateY(0);
-        }
-
-        .connection-status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            color: white;
-            opacity: 0.9;
-        }
-
-        .connected {
-            background-color: #4CAF50;
-        }
-
-        .disconnected {
-            background-color: #ff4444;
-        }
-    </style>
-</head>
-<body>
-    <div id="connectionStatus" class="connection-status disconnected">Desconectado</div>
-    
-    <div class="container">
-        <h1>Controle do LED</h1>
-        
-        <div class="status-container">
-            <div id="statusText">Status do LED:</div>
-            <span class="led-status" id="ledIndicator"></span>
+        <div id="login" class="login-container">
+            <h1>Bem-vindo!</h1>
+            <p>Por favor, faça login para acessar o controle de acesso.</p>
+            <input type="text" id="username" placeholder="Usuário" autofocus> <!--usuario: user123-->
+            <input type="password" id="password" placeholder="Senha"> <!--senha: 214365-->
+            <button onclick="login()">Entrar</button>
         </div>
-
-        <button id="toggleButton" class="button button-on">LIGAR LED</button>
-    </div>
-
-    <script>
-        // Configuração do Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyBZkRfkPaOJAUwbdJHjecqrXj2NEJIxLxY",
-            databaseURL: "https://esp32-bece3-default-rtdb.firebaseio.com/",
-        };
-
-        // Inicializar Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-        const ledRef = database.ref('led/state');
-
-        // Elementos do DOM
-        const toggleButton = document.getElementById('toggleButton');
-        const ledIndicator = document.getElementById('ledIndicator');
-        const connectionStatus = document.getElementById('connectionStatus');
-
-        // Verificar conexão com Firebase
-        const connectedRef = database.ref('.info/connected');
-        connectedRef.on('value', (snap) => {
-            if (snap.val() === true) {
-                connectionStatus.textContent = 'Conectado';
-                connectionStatus.classList.remove('disconnected');
-                connectionStatus.classList.add('connected');
-            } else {
-                connectionStatus.textContent = 'Desconectado';
-                connectionStatus.classList.remove('connected');
-                connectionStatus.classList.add('disconnected');
-            }
-        });
-
-        // Atualizar interface com base no estado do LED
-        ledRef.on('value', (snapshot) => {
-            const isOn = snapshot.val();
-            updateInterface(isOn);
-        });
-
-        // Função para atualizar a interface
-        function updateInterface(isOn) {
-            if (isOn) {
-                toggleButton.textContent = 'DESLIGAR LED';
-                toggleButton.classList.remove('button-on');
-                toggleButton.classList.add('button-off');
-                ledIndicator.classList.remove('led-off');
-                ledIndicator.classList.add('led-on');
-            } else {
-                toggleButton.textContent = 'LIGAR LED';
-                toggleButton.classList.remove('button-off');
-                toggleButton.classList.add('button-on');
-                ledIndicator.classList.remove('led-on');
-                ledIndicator.classList.add('led-off');
-            }
-        }
-
-        // Alternar estado do LED
-        toggleButton.addEventListener('click', () => {
-            ledRef.once('value').then((snapshot) => {
-                const currentState = snapshot.val();
-                ledRef.set(!currentState);
-            });
-        });
-    </script>
-</body>
+    </body>
 </html>
