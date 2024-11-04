@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle da Fechadura</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-app-compat.js"></script> <!-- Firebase App (the core Firebase SDK) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-database-compat.js"></script> <!-- Firebase Database -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-app-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.6.6/firebase-database-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -39,6 +39,18 @@
             font-size: 2rem;
         }
 
+        .controls-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .control-section {
+            padding: 1.5rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
         .status-container {
             margin: 1.5rem 0;
             padding: 1rem;
@@ -46,13 +58,13 @@
             background: #f8f9fa;
         }
 
-        #statusText {
+        .status-text {
             font-size: 1.1rem;
             color: #666;
             margin-bottom: 0.5rem;
         }
 
-        .fechadura-status {
+        .status-indicator {
             width: 20px;
             height: 20px;
             border-radius: 50%;
@@ -61,12 +73,12 @@
             transition: background-color 0.3s ease;
         }
 
-        .fechadura-on {
+        .status-on {
             background-color: #4CAF50;
             box-shadow: 0 0 10px #4CAF50;
         }
 
-        .fechadura-off {
+        .status-off {
             background-color: #ff4444;
             box-shadow: 0 0 10px #ff4444;
         }
@@ -81,6 +93,8 @@
             text-transform: uppercase;
             font-weight: bold;
             letter-spacing: 1px;
+            width: 100%;
+            margin-top: 1rem;
         }
 
         .button-on {
@@ -90,6 +104,11 @@
 
         .button-off {
             background-color: #ff4444;
+            color: white;
+        }
+
+        .button-alarm {
+            background-color: #ff9800;
             color: white;
         }
 
@@ -126,7 +145,7 @@
             background-color: #ff4444;
         }
 
-        #timerDisplay {
+        .timer-display {
             font-size: 0.9rem;
             color: #666;
             margin-top: 0.5rem;
@@ -138,15 +157,23 @@
     <div id="connectionStatus" class="connection-status disconnected">Desconectado</div>
     
     <div class="container">
-        <h1>Controle da Fechadura</h1>
+        <h1>Painel de Controle</h1>
         
-        <div class="status-container">
-            <div id="statusText">Status da Fechadura:</div>
-            <span class="fechadura-status" id="fechaduraIndicator"></span>
-        </div>
+        <div class="controls-container">
+            <div class="control-section">
+                <div class="status-text">Status da Fechadura:</div>
+                <span class="status-indicator" id="fechaduraIndicator"></span>
+                <button id="toggleFechadura" class="button button-on">ABRIR FECHADURA</button>
+                <div id="fechaduraTimer" class="timer-display"></div>
+            </div>
 
-        <button id="toggleButton" class="button button-on">LIGAR FECHADURA</button>
-        <div id="timerDisplay"></div>
+            <div class="control-section">
+                <div class="status-text">Status do Alarme:</div>
+                <span class="status-indicator" id="alarmeIndicator"></span>
+                <button id="toggleAlarme" class="button button-alarm">ATIVAR ALARME</button>
+                <div id="alarmeTimer" class="timer-display"></div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -160,17 +187,23 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         const fechaduraRef = database.ref('fechadura/state');
+        const alarmeRef = database.ref('speaker/state');
 
         // Elementos do DOM
-        const toggleButton = document.getElementById('toggleButton');
+        const toggleFechadura = document.getElementById('toggleFechadura');
+        const toggleAlarme = document.getElementById('toggleAlarme');
         const fechaduraIndicator = document.getElementById('fechaduraIndicator');
+        const alarmeIndicator = document.getElementById('alarmeIndicator');
         const connectionStatus = document.getElementById('connectionStatus');
-        const timerDisplay = document.getElementById('timerDisplay');
+        const fechaduraTimer = document.getElementById('fechaduraTimer');
+        const alarmeTimer = document.getElementById('alarmeTimer');
 
         // Variáveis do timer
         const COOLDOWN_TIME = 15; // segundos
-        let timerInterval;
-        let isButtonEnabled = true;
+        let fechaduraTimerInterval;
+        let alarmeTimerInterval;
+        let isFechaduraEnabled = true;
+        let isAlarmeEnabled = true;
 
         // Verificar conexão com Firebase
         const connectedRef = database.ref('.info/connected');
@@ -189,55 +222,106 @@
         // Atualizar interface com base no estado da fechadura
         fechaduraRef.on('value', (snapshot) => {
             const isOn = snapshot.val();
-            updateInterface(isOn);
+            updateFechaduraInterface(isOn);
         });
 
-        // Função para atualizar a interface
-        function updateInterface(isOn) {
+        // Atualizar interface com base no estado do alarme
+        alarmeRef.on('value', (snapshot) => {
+            const isOn = snapshot.val();
+            updateAlarmeInterface(isOn);
+        });
+
+        // Função para atualizar a interface da fechadura
+        function updateFechaduraInterface(isOn) {
             if (isOn) {
-                toggleButton.textContent = 'FECHAR FECHADURA';
-                toggleButton.classList.remove('button-on');
-                toggleButton.classList.add('button-off');
-                fechaduraIndicator.classList.remove('fechadura-off');
-                fechaduraIndicator.classList.add('fechadura-on');
+                toggleFechadura.textContent = 'FECHAR FECHADURA';
+                toggleFechadura.classList.remove('button-on');
+                toggleFechadura.classList.add('button-off');
+                fechaduraIndicator.classList.remove('status-off');
+                fechaduraIndicator.classList.add('status-on');
             } else {
-                toggleButton.textContent = 'ABRIR FECHADURA';
-                toggleButton.classList.remove('button-off');
-                toggleButton.classList.add('button-on');
-                fechaduraIndicator.classList.remove('fechadura-on');
-                fechaduraIndicator.classList.add('fechadura-off');
+                toggleFechadura.textContent = 'ABRIR FECHADURA';
+                toggleFechadura.classList.remove('button-off');
+                toggleFechadura.classList.add('button-on');
+                fechaduraIndicator.classList.remove('status-on');
+                fechaduraIndicator.classList.add('status-off');
             }
         }
 
-        // Função para iniciar o timer
-        function startTimer() {
+        // Função para atualizar a interface do alarme
+        function updateAlarmeInterface(isOn) {
+            if (isOn) {
+                toggleAlarme.textContent = 'ALARME ATIVADO';
+                alarmeIndicator.classList.remove('status-off');
+                alarmeIndicator.classList.add('status-on');
+            } else {
+                toggleAlarme.textContent = 'ATIVAR ALARME';
+                alarmeIndicator.classList.remove('status-on');
+                alarmeIndicator.classList.add('status-off');
+            }
+        }
+
+        // Função para iniciar o timer da fechadura
+        function startFechaduraTimer() {
             let timeLeft = COOLDOWN_TIME;
-            toggleButton.disabled = true;
-            isButtonEnabled = false;
+            toggleFechadura.disabled = true;
+            isFechaduraEnabled = false;
 
-            timerDisplay.textContent = `Aguarde ${timeLeft} segundos para próxima ação`;
+            fechaduraTimer.textContent = `Aguarde ${timeLeft} segundos para próxima ação`;
 
-            timerInterval = setInterval(() => {
+            fechaduraTimerInterval = setInterval(() => {
                 timeLeft--;
-                timerDisplay.textContent = `Aguarde ${timeLeft} segundos para próxima ação`;
+                fechaduraTimer.textContent = `Aguarde ${timeLeft} segundos para próxima ação`;
 
                 if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    toggleButton.disabled = false;
-                    isButtonEnabled = true;
-                    timerDisplay.textContent = '';
+                    clearInterval(fechaduraTimerInterval);
+                    toggleFechadura.disabled = false;
+                    isFechaduraEnabled = true;
+                    fechaduraTimer.textContent = '';
+                }
+            }, 1000);
+        }
+
+        // Função para iniciar o timer do alarme
+        function startAlarmeTimer() {
+            let timeLeft = COOLDOWN_TIME;
+            toggleAlarme.disabled = true;
+            isAlarmeEnabled = false;
+
+            alarmeTimer.textContent = `Aguarde ${timeLeft} segundos para próxima ação`;
+
+            alarmeTimerInterval = setInterval(() => {
+                timeLeft--;
+                alarmeTimer.textContent = `Aguarde ${timeLeft} segundos para próxima ação`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(alarmeTimerInterval);
+                    toggleAlarme.disabled = false;
+                    isAlarmeEnabled = true;
+                    alarmeTimer.textContent = '';
                 }
             }, 1000);
         }
 
         // Alternar estado da Fechadura
-        toggleButton.addEventListener('click', () => {
-            if (!isButtonEnabled) return;
+        toggleFechadura.addEventListener('click', () => {
+            if (!isFechaduraEnabled) return;
 
             fechaduraRef.once('value').then((snapshot) => {
                 const currentState = snapshot.val();
                 fechaduraRef.set(!currentState);
-                startTimer();
+                startFechaduraTimer();
+            });
+        });
+
+        // Alternar estado do Alarme
+        toggleAlarme.addEventListener('click', () => {
+            if (!isAlarmeEnabled) return;
+
+            alarmeRef.once('value').then((snapshot) => {
+                const currentState = snapshot.val();
+                alarmeRef.set(!currentState);
+                startAlarmeTimer();
             });
         });
     </script>
