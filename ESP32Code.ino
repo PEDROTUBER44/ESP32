@@ -1,43 +1,38 @@
-/*
-
-Codigo do DOIT ESP32 DEVKIT V1.
-
-O código consiste no seguinte: ele ficará verificando o Realtime Database do Firebase.
-Caso ele esteja diferente do estado atual da fechadura, ele irá mudar para se igualar ao do Firebase.
-
-*/
-
-
-#include <WiFi.h> // Incluir Modulo de conexão ao WIFI
-#include <Firebase_ESP_Client.h> // Incluir modulo de Client do Firebase
+#include <WiFi.h>
+#include <Firebase_ESP_Client.h>
 #include <addons/TokenHelper.h>
 #include <addons/RTDBHelper.h>
 
-const char* ssid = "Casa"; // SSID da Internet
-const char* password = "ramos#@1"; // Senha da Internet
-const int outputPin = 21; // Define a porta serial
-bool signupOK = false; // Variável para controlar o estado de conexão com o Firebase
+const char* ssid = "VIVOFIBRA-F611";
+const char* password = "sL5LsvrGcg";
+const int outputLock = 19;    // Pin for lock control
+const int outputLed = 22;     // Pin for LED
+const int outputSirene = 18;  // Pin for speaker
+bool signupOK = false;
 
-#define API_KEY "AIzaSyBZkRfkPaOJAUwbdJHjecqrXj2NEJIxLxY" // API_KEY do firebase
-#define DATABASE_URL "https://esp32-bece3-default-rtdb.firebaseio.com/" // URL do Database
+// Variables for siren timing control
+unsigned long sireneStartTime = 0;
+const unsigned long sireneDuration = 5000; // Siren duration in milliseconds (5 seconds)
+bool sireneActive = false;
 
-// Objetos do Firebase
+#define API_KEY "AIzaSyBZkRfkPaOJAUwbdJHjecqrXj2NEJIxLxY"
+#define DATABASE_URL "https://esp32-bece3-default-rtdb.firebaseio.com/"
+
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
 void toggleFECHADURA(bool fechaduraState) {
-    digitalWrite(outputPin, fechaduraState);
+    digitalWrite(outputLed, fechaduraState);   // Control LED
+    digitalWrite(outputLock, fechaduraState);  // Control actual lock - Agora corresponde diretamente ao estado
     
-    // Atualiza o estado no Firebase
     if (Firebase.RTDB.setBool(&fbdo, "fechadura/state", fechaduraState)){
         Serial.println("Estado atualizado no Firebase");
         
-        // Envia sinal pela porta serial setada na variavel outputPin
         if (fechaduraState) {
-            Serial.write("PORTA SERIAL LIGADA\n"); // Enviar comando para a portaserial ligar
+            Serial.write("PORTA SERIAL LIGADA\n");
         } else {
-            Serial.write("PORTA SERIAL DESLIGADA\n"); // Enviar comando para a portaserial desligar 
+            Serial.write("PORTA SERIAL DESLIGADA\n");
         }
     }
     else {
@@ -46,14 +41,54 @@ void toggleFECHADURA(bool fechaduraState) {
     }
 }
 
+void toggleSPEAKER(bool speakerState) {
+    if (speakerState && !sireneActive) {
+        sireneActive = true;
+        sireneStartTime = millis();
+        Serial.println("Sirene ativada");
+    }
+    
+    if (Firebase.RTDB.setBool(&fbdo, "speaker/state", speakerState)){
+        Serial.println("Estado do speaker atualizado no Firebase");
+    }
+    else {
+        Serial.println("Falha ao atualizar estado do speaker no Firebase");
+        Serial.println("RAZÃO: " + fbdo.errorReason());
+    }
+}
+
+void handleSirene() {
+    if (sireneActive) {
+        tone(outputSirene, 100);
+        delay(500);
+        tone(outputSirene, 500);
+        delay(500);
+        
+        if (millis() - sireneStartTime >= sireneDuration) {
+            noTone(outputSirene);
+            sireneActive = false;
+            
+            if (Firebase.RTDB.setBool(&fbdo, "speaker/state", false)) {
+                Serial.println("Sirene desativada e Firebase atualizado");
+            } else {
+                Serial.println("Falha ao atualizar estado da sirene no Firebase");
+            }
+        }
+    }
+}
+
 void setup() {
-    Serial.begin(2000000); // 9600 apenas para debug
+    Serial.begin(2000000);
     Serial.println("\nIniciando...");
 
-    pinMode(outputPin, OUTPUT);
-    digitalWrite(outputPin, LOW);
+    pinMode(outputLock, OUTPUT);  // Initialize lock pin
+    pinMode(outputLed, OUTPUT);   // Initialize LED pin
+    pinMode(outputSirene, OUTPUT); // Initialize speaker pin
+    
+    digitalWrite(outputLock, LOW);  // Ensure lock starts closed
+    digitalWrite(outputLed, LOW);   // Ensure LED starts off
+    noTone(outputSirene);          // Ensure speaker starts silent
 
-    // Conexão WiFi
     Serial.println("Conectando ao WiFi...");
     WiFi.begin(ssid, password);
 
@@ -70,7 +105,6 @@ void setup() {
         Serial.print("IP local: ");
         Serial.println(WiFi.localIP());
 
-        // Configuração do Firebase
         config.api_key = API_KEY;
         config.database_url = DATABASE_URL;
 
@@ -84,6 +118,13 @@ void setup() {
         config.token_status_callback = tokenStatusCallback;
         Firebase.begin(&config, &auth);
         Firebase.reconnectWiFi(true);
+        
+        // Inicializa o estado da fechadura verificando o Firebase
+        if (Firebase.RTDB.getBool(&fbdo, "fechadura/state")) {
+            bool initialState = fbdo.boolData();
+            digitalWrite(outputLed, initialState);
+            digitalWrite(outputLock, initialState);
+        }
     } else {
         Serial.println("Falha ao conectar ao WiFi");
     }
@@ -91,12 +132,22 @@ void setup() {
 
 void loop() {
     if (WiFi.status() == WL_CONNECTED) {
-        // Verifica mudanças no Firebase
         if (Firebase.ready() && signupOK) {
+            // Check lock state
             if (Firebase.RTDB.getBool(&fbdo, "fechadura/state")) {
-                bool firebaseState = fbdo.boolData();
-                digitalWrite(outputPin, firebaseState);
+              bool fechaduraState = fbdo.boolData();
+              digitalWrite(outputLed, fechaduraState);
+              digitalWrite(outputLock, fechaduraState);  // Atualiza diretamente o estado da fechadura
             }
+            
+            // Check speaker state
+            if (Firebase.RTDB.getBool(&fbdo, "speaker/state")) {
+                bool speakerState = fbdo.boolData();
+                toggleSPEAKER(speakerState);
+            }
+            
+            // Handle siren operation
+            handleSirene();
         }
     }
 }
