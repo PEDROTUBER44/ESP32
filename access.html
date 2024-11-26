@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,7 +28,7 @@
             background: white;
             padding: 2rem;
             border-radius: 15px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
             text-align: center;
             max-width: 90%;
             width: 400px;
@@ -114,7 +115,7 @@
 
         .button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
 
         .button:active:not(:disabled) {
@@ -151,14 +152,30 @@
             margin-top: 0.5rem;
             min-height: 20px;
         }
+
+        /* Estilos para notificação */
+        #notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: none;
+            z-index: 1000;
+        }
     </style>
 </head>
+
 <body>
     <div id="connectionStatus" class="connection-status disconnected">Desconectado</div>
-    
+    <div id="notification">Um pedido chegou na porta!</div>
+
     <div class="container">
         <h1>Painel de Controle</h1>
-        
+
         <div class="controls-container">
             <div class="control-section">
                 <div class="status-text">Status da Fechadura:</div>
@@ -173,7 +190,7 @@
                 <button id="toggleAlarme" class="button button-alarm">ATIVAR ALARME</button>
                 <div id="alarmeTimer" class="timer-display"></div>
             </div>
-            
+
             <button class="button" onclick="window.location.href='https://www.youtube.com'">VER CÂMERA</button>
         </div>
     </div>
@@ -190,6 +207,7 @@
         const database = firebase.database();
         const fechaduraRef = database.ref('fechadura/state');
         const alarmeRef = database.ref('speaker/state');
+        const notificationRef = database.ref('notification/state');
 
         // Elementos do DOM
         const toggleFechadura = document.getElementById('toggleFechadura');
@@ -199,6 +217,7 @@
         const connectionStatus = document.getElementById('connectionStatus');
         const fechaduraTimer = document.getElementById('fechaduraTimer');
         const alarmeTimer = document.getElementById('alarmeTimer');
+        const notification = document.getElementById('notification');
 
         // Variáveis do timer
         const COOLDOWN_TIME = 15; // segundos
@@ -218,6 +237,27 @@
                 connectionStatus.textContent = 'Desconectado';
                 connectionStatus.classList.remove('connected');
                 connectionStatus.classList.add('disconnected');
+            }
+        });
+
+        // Monitorar notificações
+        notificationRef.on('value', (snapshot) => {
+            const hasNotification = snapshot.val();
+            if (hasNotification) {
+                // Mostrar notificação
+                notification.style.display = 'block';
+
+                // Tocar som de notificação
+                const audio = new Audio('https://www.soundjay.com/button/beep-07.mp3');
+                audio.play();
+
+                // Redefinir o estado da notificação para false
+                notificationRef.set(false);
+
+                // Esconder notificação após 5 segundos
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 5000);
             }
         });
 
@@ -328,4 +368,5 @@
         });
     </script>
 </body>
+
 </html>
